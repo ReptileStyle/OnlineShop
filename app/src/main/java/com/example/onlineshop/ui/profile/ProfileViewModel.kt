@@ -1,5 +1,6 @@
 package com.example.onlineshop.ui.profile
 
+import android.content.ContentResolver
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.ImageDecoder
@@ -31,8 +32,6 @@ import javax.inject.Inject
 @HiltViewModel
 class ProfileViewModel @Inject constructor(
     private val userRepository: UserRepository,
-    @ApplicationContext
-    val context: Context
 ): ViewModel() {
     private val _uiEvent = Channel<UiEvent>()
     val uiEvent = _uiEvent.receiveAsFlow()
@@ -83,17 +82,17 @@ class ProfileViewModel @Inject constructor(
         state = state.copy(imageBitmap = imageBitmap)
     }
 
-    fun onPhotoPicked(uri: Uri?){
+    fun onPhotoPicked(uri: Uri?, resolver: ContentResolver){
         setImageUri(uri)
         var bitmap: Bitmap? = null
         state.imageUri?.let {
             bitmap = if (Build.VERSION.SDK_INT < 28) {
                 MediaStore.Images
-                    .Media.getBitmap(context.contentResolver, it)
+                    .Media.getBitmap(resolver, it)
 
             } else {
                 val source = ImageDecoder
-                    .createSource(context.contentResolver, it)
+                    .createSource(resolver, it)
                 ImageDecoder.decodeBitmap(source)
             }
         }
@@ -115,7 +114,7 @@ class ProfileViewModel @Inject constructor(
                         is Response.Failure ->{
                             state = state.copy(isPhotoLoading = false)
                             Log.d("UserPhotoVM","fail")
-                            Toast.makeText(context,"${response.e}", Toast.LENGTH_LONG)
+                            sendUiEventMessage("${response.e}", Toast.LENGTH_LONG)
 //                            viewModelScope.launch {
 //                                _uiEvent.send(UiEvent.ShowSnackbar(UiText.DynamicString("${response.e}")))
 //                            }
@@ -125,6 +124,11 @@ class ProfileViewModel @Inject constructor(
                         }
                     }
                 }
+        }
+    }
+    private fun sendUiEventMessage(text:String,length:Int){
+        viewModelScope.launch {
+            _uiEvent.send(UiEvent.Message(text,length))
         }
     }
 }

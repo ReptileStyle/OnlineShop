@@ -24,8 +24,6 @@ import javax.inject.Inject
 @HiltViewModel
 class LoginViewModel @Inject constructor(
     private val userRepository: UserRepository,
-    @ApplicationContext
-    val context: Context
 ) : ViewModel() {
     var state by mutableStateOf(LoginState())
         private set
@@ -60,12 +58,12 @@ class LoginViewModel @Inject constructor(
 
     private fun checkIfFieldCorrect():Boolean{
         if(state.firstname.isBlank()){
-            Toast.makeText(context,"First name must not be blank",Toast.LENGTH_SHORT).show()
+            sendUiEventMessage("First name must not be blank",Toast.LENGTH_SHORT)
             state = state.copy(isFirstnameError = true)
             return false
         }
         if(state.password.length<8){
-            Toast.makeText(context,"Password must be at least 8 characters long",Toast.LENGTH_SHORT).show()
+            sendUiEventMessage("Password must be at least 8 characters long",Toast.LENGTH_SHORT)
             state = state.copy(isPasswordError = true)
             return false
         }
@@ -86,14 +84,18 @@ class LoginViewModel @Inject constructor(
                     }
                     is Response.Success -> {
                         state = state.copy(isLoading = false)
-                        _uiEvent.send(UiEvent.Navigate(Route.profile,popBackStack = true))
+                        _uiEvent.send(UiEvent.Navigate(Route.home,popBackStack = true))
                     }
                     is Response.Failure -> {
                         state = state.copy(isLoading = false, password = "", isFirstnameError = true)
-                        Toast.makeText(context ,"${response.e.message}", Toast.LENGTH_LONG).show()
+                        sendUiEventMessage("${response.e.message}", Toast.LENGTH_LONG)
                     }
                 }
             }
     }
-
+    private fun sendUiEventMessage(text:String,length:Int){
+        viewModelScope.launch {
+            _uiEvent.send(UiEvent.Message(text,length))
+        }
+    }
 }

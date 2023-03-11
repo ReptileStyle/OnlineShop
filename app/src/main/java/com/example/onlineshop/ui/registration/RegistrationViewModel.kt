@@ -1,7 +1,11 @@
 package com.example.onlineshop.ui.registration
 
+
+import android.app.Activity
 import android.content.Context
+import android.util.Log
 import android.widget.Toast
+import androidx.activity.result.ActivityResult
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -13,7 +17,9 @@ import com.example.onlineshop.domain.model.InternetNotAvailableException
 import com.example.onlineshop.domain.model.Response
 import com.example.onlineshop.domain.repository.UserRepository
 import com.example.onlineshop.navigation.Route
+import com.google.android.gms.auth.api.identity.Identity
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ActivityContext
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -27,8 +33,6 @@ import javax.inject.Inject
 @HiltViewModel
 class RegistrationViewModel @Inject constructor(
     private val userRepository: UserRepository,
-    @ApplicationContext
-    val context: Context
 ):ViewModel() {
 
     var state by mutableStateOf(RegistrationState())
@@ -73,17 +77,17 @@ class RegistrationViewModel @Inject constructor(
     }
     private fun checkIfFieldsCorrect():Boolean{
         if(state.firstName.isBlank()){
-            Toast.makeText(context,"first name must not be blank",Toast.LENGTH_SHORT).show()
+            sendUiEventMessage("first name must not be blank",Toast.LENGTH_SHORT)
             state = state.copy(isFirstNameError = true)
             return false
         }
         if(state.lastName.isBlank()){
-            Toast.makeText(context,"last name must not be blank",Toast.LENGTH_SHORT).show()
+            sendUiEventMessage("last name must not be blank",Toast.LENGTH_SHORT)
             state = state.copy(isLastNameError = true)
             return false
         }
         if(state.email.isBlank()){
-            Toast.makeText(context,"email must not be blank",Toast.LENGTH_SHORT).show()
+            sendUiEventMessage("email must not be blank",Toast.LENGTH_SHORT)
             state = state.copy(isEmailError = true)
             return false
         }
@@ -96,16 +100,50 @@ class RegistrationViewModel @Inject constructor(
                 when(response){
                     is Response.Success ->{
                         state = state.copy(isLoading = false)
-                        _uiEvent.send(UiEvent.Navigate(Route.profile,popBackStack = true))
-                        Toast.makeText(context,"successfully signed in",Toast.LENGTH_SHORT).show()
+                        _uiEvent.send(UiEvent.Navigate(Route.home,popBackStack = true))
+                        sendUiEventMessage("successfully signed in",Toast.LENGTH_SHORT)
                     }
                     is Response.Failure ->{
                         state = state.copy(isLoading = false,isEmailError = true)
-                        Toast.makeText(context ,"${response.e.message}",Toast.LENGTH_LONG).show()
+                        sendUiEventMessage("${response.e.message}",Toast.LENGTH_LONG)
                     }
                     is Response.Loading ->{
                         state = state.copy(isLoading = true)
                     }
+                }
+            }
+        }
+    }
+
+    fun processGoogleSignInResult(result: ActivityResult, context: Context){
+        viewModelScope.launch {
+            userRepository.processGoogleSignInResult(result, context).collect{
+                when(it){
+                    is Response.Loading ->{
+                        state=state.copy(isGoogleLoading = true)
+                    }
+                    is Response.Failure->{
+                        _uiEvent.send(UiEvent.Message(it.e.message ?: "something went wrong",Toast.LENGTH_SHORT))
+                        state=state.copy(isGoogleLoading = false)
+                    }
+                    is Response.Success -> {
+                        _uiEvent.send(UiEvent.Navigate(Route.home,popBackStack = true))
+                        state=state.copy(isGoogleLoading = false)
+                    }
+                }
+            }
+        }
+    }
+
+    fun signInWithGoogle(context:Context){
+        viewModelScope.launch {
+            userRepository.signInWithGoogle(context).collect{
+                Log.d("asd",it.toString())
+                when(it){
+                    is Response.Success->{
+                        state = state.copy(oneTapSignInResponse = it.data)
+                    }
+                    else -> {}
                 }
             }
         }
@@ -127,14 +165,19 @@ class RegistrationViewModel @Inject constructor(
                     when(e){
                         is CancellationException -> {}//it is ok
                         is InternetNotAvailableException -> {
-                            Toast.makeText(context ,"${e.message}",Toast.LENGTH_LONG).show()
+                            sendUiEventMessage("${e.message}",Toast.LENGTH_LONG)
                         }
                         else->{
-                            Toast.makeText(context ,"${e.message}",Toast.LENGTH_LONG).show()
+                            sendUiEventMessage("${e.message}",Toast.LENGTH_LONG)
                         }
                     }
                 }
             }
+        }
+    }
+    private fun sendUiEventMessage(text:String,length:Int){
+        viewModelScope.launch {
+            _uiEvent.send(UiEvent.Message(text,length))
         }
     }
 }

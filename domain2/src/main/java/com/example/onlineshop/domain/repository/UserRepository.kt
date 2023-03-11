@@ -1,9 +1,13 @@
 package com.example.onlineshop.domain.repository
 
+import android.app.Instrumentation
+import android.content.Context
 import android.net.Uri
+import androidx.activity.result.ActivityResult
 import com.example.onlineshop.domain.model.ProfileData
 import com.example.onlineshop.domain.model.Response
 import com.example.onlineshop.domain.model.User
+import com.google.android.gms.auth.api.identity.BeginSignInResult
 import com.google.firebase.auth.FirebaseUser
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
@@ -28,6 +32,9 @@ interface UserRepository {
     fun <T> updateUserData(field: String, data: T): Response<Boolean>
 
     suspend fun getProfileData(): Response<ProfileData>
+
+    suspend fun signInWithGoogle(context: Context):Flow<Response<BeginSignInResult>>
+    suspend fun processGoogleSignInResult(result: ActivityResult, context: Context):Flow<Response<Boolean>>
 
     fun isLoggedIn():Boolean
 }

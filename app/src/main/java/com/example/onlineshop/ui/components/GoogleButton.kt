@@ -59,7 +59,7 @@ fun GoogleOrAppleButton(
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text(
-                text = text,
+                text = if(isLoading) "Creating account" else text,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Medium,
                 fontFamily = Montserrat
@@ -71,7 +71,7 @@ fun GoogleOrAppleButton(
                         .width(16.dp)
                         .height(16.dp),
                     strokeWidth = 2.dp,
-                    color = Color.White
+                    color = Color.Black
                 )
             }
         }

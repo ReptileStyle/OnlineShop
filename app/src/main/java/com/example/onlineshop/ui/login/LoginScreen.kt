@@ -1,5 +1,6 @@
 package com.example.onlineshop.ui.login
 
+import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -14,6 +15,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -41,12 +43,13 @@ fun LoginScreen(
     onNavigateUp: () -> Unit = {},
     onNavigate: (route: String, popBackStack: Boolean) -> Unit = { _, _ -> }
 ) {
+    val context = LocalContext.current
     LaunchedEffect(key1 = true) {
         viewModel.uiEvent.collect {
             when (it) {
                 is UiEvent.Navigate -> onNavigate(it.route, it.popBackStack)
                 is UiEvent.NavigateUp -> onNavigateUp()
-
+                is UiEvent.Message -> Toast.makeText(context,it.text,it.length).show()
                 else -> {}
             }
         }
@@ -63,7 +66,7 @@ fun LoginScreen(
         ) {
             Spacer(modifier = Modifier.height(105.dp))
             Text(
-                text = "Sign in",
+                text = "Log in",
                 style = TextStyle(
                     fontFamily = Montserrat,
                     fontSize = 26.sp,

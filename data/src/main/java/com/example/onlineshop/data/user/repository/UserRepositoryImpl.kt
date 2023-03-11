@@ -1,26 +1,44 @@
 package com.example.onlineshop.data.user.repository
 
+import android.app.Activity
+import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.util.Log
+import androidx.activity.result.ActivityResult
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
+import com.example.data.R
+import com.example.onlineshop.core.Constants
 import com.example.onlineshop.domain.model.InternetNotAvailableException
 import com.example.onlineshop.domain.model.ProfileData
 import com.example.onlineshop.domain.model.Response
 import com.example.onlineshop.domain.model.User
 import com.example.onlineshop.domain.repository.UserRepository
+import com.google.android.gms.auth.api.identity.BeginSignInRequest
+import com.google.android.gms.auth.api.identity.BeginSignInResult
+import com.google.android.gms.auth.api.identity.Identity
 import com.google.firebase.FirebaseException
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
+import com.google.firebase.auth.GoogleAuthProvider
+import com.google.firebase.auth.ktx.auth
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreException
 import com.google.firebase.firestore.SetOptions
+import com.google.firebase.firestore.ktx.firestore
+import com.google.firebase.firestore.ktx.firestoreSettings
+import com.google.firebase.ktx.Firebase
 import com.google.firebase.storage.FirebaseStorage
+import com.google.firebase.storage.ktx.storage
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.android.AndroidEntryPoint
+import dagger.hilt.android.EntryPointAccessors
+import dagger.hilt.android.components.ActivityComponent
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -30,13 +48,16 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 
-class UserRepositoryImpl @Inject constructor(
-    private val firebaseAuth: FirebaseAuth,
-    private val firebaseStorage: FirebaseStorage,
-    private val firestore: FirebaseFirestore
-) : com.example.onlineshop.domain.repository.UserRepository {
+
+class UserRepositoryImpl @Inject constructor() : com.example.onlineshop.domain.repository.UserRepository {
 
 
+    private val firebaseAuth = Firebase.auth
+    private val firestore = Firebase.firestore
+    private val firebaseStorage = Firebase.storage
+    init {
+        Firebase.firestore.firestoreSettings = firestoreSettings { isPersistenceEnabled = false }
+    }
 
     private var profileData: com.example.onlineshop.domain.model.ProfileData? = null
 
@@ -150,6 +171,7 @@ class UserRepositoryImpl @Inject constructor(
 
     override fun logout() {
         firebaseAuth.signOut()
+        profileData = null
     }
 
     override fun uploadUserProfilePhoto(uri: Uri?): Flow<com.example.onlineshop.domain.model.Response<Boolean>> {
@@ -221,7 +243,7 @@ class UserRepositoryImpl @Inject constructor(
         try {
             val imageBytes =
                 firebaseStorage.getReference("profile_pics/${firebaseAuth.uid}")
-                    .getBytes(1024 * 1024).await()
+                    .getBytes(1024 * 1024*1024).await()
             Log.d("ChatViewModel", "try block")
             return BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
         } catch (e: Exception) {
@@ -230,7 +252,64 @@ class UserRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun signInWithGoogle(context: Context):Flow<Response<BeginSignInResult>>{
+        return flow{
+            emit(Response.Loading)
+            try {
+                val oneTapClient = Identity.getSignInClient(context)
+                val signInRequest = BeginSignInRequest.builder()
+                    .setGoogleIdTokenRequestOptions(
+                        BeginSignInRequest.GoogleIdTokenRequestOptions.builder()
+                            .setSupported(true)
+                            .setServerClientId(Constants.WEB_CLIENT_ID)
+                            .setFilterByAuthorizedAccounts(false)
+                            .build())
+                    .build()
+
+                emit(Response.Success(oneTapClient.beginSignIn(signInRequest).await()))
+            }catch (e:Exception){
+                emit(Response.Failure(e))
+            }
+        }
+    }
+
+    override suspend fun processGoogleSignInResult(result: ActivityResult, context: Context):Flow<Response<Boolean>>{
+        return flow {
+            try {
+                emit(Response.Loading)
+                if (result.resultCode == Activity.RESULT_OK) {
+                    val credentials =
+                        Identity.getSignInClient(context).getSignInCredentialFromIntent(result.data)
+                    val googleId = credentials.googleIdToken
+                    val googleCredentials = GoogleAuthProvider.getCredential(googleId, null)
+                    val authResult = firebaseAuth.signInWithCredential(googleCredentials).await()
+                    val isNewUser = authResult.additionalUserInfo?.isNewUser ?: false
+                    if (isNewUser) {
+                        addUserToFirestore()
+                    }
+                    emit(Response.Success(true))
+                }
+            }catch (e:Exception){
+                emit(Response.Failure(e))
+            }
+        }
+    }
+
+    private suspend fun addUserToFirestore() {
+        firebaseAuth.currentUser?.apply {
+            val user = toUser()
+            firestore.collection("users").document(uid).set(user).await()
+        }
+    }
+
     override fun isLoggedIn(): Boolean {
         return firebaseAuth.uid!=null
     }
 }
+fun FirebaseUser.toUser() = mapOf(
+    "firstname" to (displayName?.split(' ')?.get(0) ?: "empty"),
+    "lastname" to (displayName?.split(' ')?.get(1) ?: "empty"),
+    "email" to email,
+    "profilePhotoUrl" to photoUrl?.toString(),
+    "created_at" to FieldValue.serverTimestamp()
+)

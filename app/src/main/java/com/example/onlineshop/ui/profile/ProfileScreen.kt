@@ -6,6 +6,7 @@ import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
 import android.util.Log
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
@@ -60,21 +61,21 @@ fun ProfileScreen(
     onNavigate: (route: String, popBackStack: Boolean) -> Unit = { _, _ -> },
     navController: NavHostController
 ) {
+    val context = LocalContext.current
     LaunchedEffect(key1 = true) {
         viewModel.uiEvent.collect {
             when (it) {
                 is UiEvent.Navigate -> onNavigate(it.route, it.popBackStack)
                 is UiEvent.NavigateUp -> onNavigateUp()
+                is UiEvent.Message -> Toast.makeText(context,it.text,it.length).show()
                 else -> {}
             }
         }
     }
 
-    val context = LocalContext.current
-
     val launcher = rememberLauncherForActivityResult(contract =
     ActivityResultContracts.GetContent()) { uri: Uri? ->
-        viewModel.onPhotoPicked(uri)
+        viewModel.onPhotoPicked(uri,context.contentResolver)
     }
 
     ProfileScreenUi(

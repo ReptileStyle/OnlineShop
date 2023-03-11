@@ -11,10 +11,9 @@ import androidx.lifecycle.viewModelScope
 import com.example.onlineshop.core.util.UiEvent
 import com.example.onlineshop.domain.model.Response
 import com.example.onlineshop.domain.repository.UserRepository
-import com.example.onlineshop.network.FlashSale
-import com.example.onlineshop.network.Latest
-import com.example.onlineshop.network.Product
-import com.example.onlineshop.network.ProductsApi
+import com.example.onlineshop.data.network.FlashSale
+import com.example.onlineshop.data.network.Latest
+import com.example.onlineshop.data.network.ProductsApi
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.channels.Channel
@@ -25,8 +24,6 @@ import javax.inject.Inject
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val userRepository: UserRepository,
-    @ApplicationContext
-    val context: Context
 ) : ViewModel() {
     var state by mutableStateOf(HomeState())
         private set
@@ -56,18 +53,18 @@ class HomeViewModel @Inject constructor(
     }
 
     private suspend fun getProducts() {
-        var latestProductList: List<com.example.onlineshop.network.Latest>? = null
-        var flashSaleProductList: List<com.example.onlineshop.network.FlashSale>? = null
+        var latestProductList: List<Latest>? = null
+        var flashSaleProductList: List<FlashSale>? = null
         val a = viewModelScope.launch {
             try {
-                latestProductList = com.example.onlineshop.network.ProductsApi.retrofitService.getLatestProducts().latest
+                latestProductList = ProductsApi.retrofitService.getLatestProducts().latest
             } catch (e: Exception) {
                 Log.d("HomeVM", "${e.message}")
             }
         }
         val b = viewModelScope.launch {
             try {
-                flashSaleProductList = com.example.onlineshop.network.ProductsApi.retrofitService.getFlashSaleProducts().flash_sale
+                flashSaleProductList = ProductsApi.retrofitService.getFlashSaleProducts().flash_sale
             } catch (e: Exception) {
                 Log.d("HomeVM", "${e.message}")
             }
@@ -79,6 +76,11 @@ class HomeViewModel @Inject constructor(
                 flashSaleProductList = flashSaleProductList ?: listOf(),
                 latestProductList = latestProductList ?: listOf()
             )
+        }
+    }
+    private fun sendUiEventMessage(text:String,length:Int){
+        viewModelScope.launch {
+            _uiEvent.send(UiEvent.Message(text,length))
         }
     }
 }

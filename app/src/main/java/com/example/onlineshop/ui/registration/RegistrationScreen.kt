@@ -1,5 +1,9 @@
 package com.example.onlineshop.ui.registration
 
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.IntentSenderRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -11,6 +15,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -25,6 +30,7 @@ import com.example.onlineshop.ui.components.OutlinedTextFieldNoContentPadding
 import com.example.onlineshop.ui.components.RegistrationTextField
 import com.example.onlineshop.ui.theme.Montserrat
 import com.example.onlineshop.ui.theme.OnlineShopTheme
+import com.google.android.gms.auth.api.identity.BeginSignInResult
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
@@ -35,14 +41,31 @@ fun RegistrationScreen (
     onNavigateUp: () -> Unit = {},
     onNavigate: (route: String, popBackStack: Boolean) -> Unit = {_,_ ->}
 ){
+    val context = LocalContext.current
     LaunchedEffect(key1 = true) {
         viewModel.uiEvent.collect {
             when(it) {
                 is UiEvent.Navigate -> onNavigate(it.route, it.popBackStack)
                 is UiEvent.NavigateUp -> onNavigateUp()
-
+                is UiEvent.Message -> Toast.makeText(context,it.text,it.length).show()
                 else -> {}
             }
+        }
+    }
+
+
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
+        viewModel.processGoogleSignInResult(result, context)
+    }
+
+    fun launch(signInResult: BeginSignInResult) {
+        val intent = IntentSenderRequest.Builder(signInResult.pendingIntent.intentSender).build()
+        launcher.launch(intent)
+    }
+    LaunchedEffect(key1 = viewModel.state.oneTapSignInResponse){
+        val response = viewModel.state.oneTapSignInResponse
+        if(response != null){
+            launch(response)
         }
     }
     Scaffold() {
@@ -145,7 +168,8 @@ fun RegistrationScreen (
                     .fillMaxWidth(),
                 text = "Sign in with Google",
                 iconResource = R.drawable.google_black_logo,
-                onClick = {}
+                onClick = {viewModel.signInWithGoogle(context)},
+                isLoading = viewModel.state.isGoogleLoading
             )
             Spacer(modifier = Modifier.height(16.dp))
             GoogleOrAppleButton(

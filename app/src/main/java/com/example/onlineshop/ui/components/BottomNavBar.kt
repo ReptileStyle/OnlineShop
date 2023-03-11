@@ -107,12 +107,10 @@ sealed class BottomBarScreen(
         route = Route.home,
         iconResource = R.drawable.chat
     )
-
     object Profile : BottomBarScreen(
         route = Route.profile,
         iconResource = R.drawable.profile
     )
-
 }
 
 @Composable

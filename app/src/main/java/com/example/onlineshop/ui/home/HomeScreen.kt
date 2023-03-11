@@ -1,6 +1,7 @@
 package com.example.onlineshop.ui.home
 
 import android.content.res.Configuration
+import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -8,7 +9,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.FloatingActionButtonDefaults
-import androidx.compose.material.SnackbarDefaults.backgroundColor
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ExpandMore
@@ -27,7 +27,6 @@ import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -43,10 +42,9 @@ import com.example.onlineshop.core.util.UiEvent
 import com.example.onlineshop.data_example.CategoryList
 import com.example.onlineshop.domain.model.CategoryItem
 
-import com.example.onlineshop.network.FlashSale
-import com.example.onlineshop.network.FlashSaleProductsList
-import com.example.onlineshop.network.Latest
-import com.example.onlineshop.network.Product
+import com.example.onlineshop.data.network.FlashSale
+import com.example.onlineshop.data.network.Latest
+import com.example.onlineshop.data.network.Product
 import com.example.onlineshop.ui.components.BottomNavBar
 import com.example.onlineshop.ui.components.HomeTopAppBar
 import com.example.onlineshop.ui.components.ProfilePhotoContainer
@@ -63,11 +61,13 @@ fun HomeScreen(
     onNavigate: (route: String, popBackStack: Boolean) -> Unit = { _, _ -> },
     navController: NavHostController
 ) {
+    val context = LocalContext.current
     LaunchedEffect(key1 = true) {
         viewModel.uiEvent.collect {
             when (it) {
                 is UiEvent.Navigate -> onNavigate(it.route, it.popBackStack)
                 is UiEvent.NavigateUp -> onNavigateUp()
+                is UiEvent.Message -> Toast.makeText(context,it.text,it.length).show()
                 else -> {}
             }
         }
@@ -93,8 +93,8 @@ private fun HomeScreenUi(
     isProfilePhotoLoading: Boolean = false,
     profilePhotoImageBitmap: ImageBitmap? = null,
     isOrientationLandscape: Boolean = false,
-    latestProductList: List<com.example.onlineshop.network.Latest> = listOf(),
-    flashSaleProductsList: List<com.example.onlineshop.network.FlashSale> = listOf(),
+    latestProductList: List<Latest> = listOf(),
+    flashSaleProductsList: List<FlashSale> = listOf(),
     navController: NavHostController = rememberNavController()
 ) {
     Scaffold(
@@ -161,7 +161,7 @@ private fun HomeScreenUi(
 private fun ProductsContainer(
     modifier: Modifier = Modifier,
     title: String = "test title",
-    itemList: List<com.example.onlineshop.network.Product> = listOf()
+    itemList: List<Product> = listOf()
 ) {
     Column(
         modifier,
@@ -191,9 +191,9 @@ private fun ProductsContainer(
         LazyRow(
             modifier = Modifier.fillMaxWidth(),
         ) {
-            itemsIndexed(itemList) { index: Int, item: com.example.onlineshop.network.Product ->
+            itemsIndexed(itemList) { index: Int, item: Product ->
                 when (item) {
-                    is com.example.onlineshop.network.Latest -> {
+                    is Latest -> {
                         LatestProductItem(
                             item = item,
                             modifier = Modifier
@@ -202,7 +202,7 @@ private fun ProductsContainer(
                                 .padding(start = 12.dp)
                         )
                     }
-                    is com.example.onlineshop.network.FlashSale -> {
+                    is FlashSale -> {
                         FlashSaleProductItem(
                             item = item,
                             modifier = Modifier
@@ -224,7 +224,7 @@ private fun ProductsContainer(
 @Composable
 private fun LatestProductItem(
     modifier: Modifier = Modifier,
-    item: com.example.onlineshop.network.Latest,
+    item: Latest,
 ) {
     Surface(
         modifier = modifier,
@@ -323,7 +323,7 @@ private fun LatestProductItem(
 @Composable
 private fun FlashSaleProductItem(
     modifier: Modifier = Modifier,
-    item: com.example.onlineshop.network.FlashSale,
+    item: FlashSale,
 ) {
     Surface(
         modifier = modifier,
